@@ -19,9 +19,9 @@
 using System;
 using Avalonia;
 using AvaloniaEdit.Document;
+using AvaloniaEdit.Editing;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Input;
 using Avalonia.Threading;
 
@@ -45,32 +45,39 @@ namespace AvaloniaEdit.CodeCompletion
         /// </summary>
         public CompletionWindow(TextEditor editor) : base(editor)
         {
-            CompletionList = new CompletionList();
+            CompletionList = new CompletionList
+            {
+                CompletionAcceptAction = editor.Options.CompletionAcceptAction
+            };
+
             // keep height automatic
             CloseAutomatically = true;
             MaxHeight = 225;
-            Width = 175;
+            MaxWidth = 550;
             Child = CompletionList;
             // prevent user from resizing window to 0x0
             MinHeight = 15;
-            MinWidth = 30;          
+            MinWidth = 175;
 
             _toolTipContent = new CompletionTipContentControl();
 
             _toolTip = new PopupWithCustomPosition
             {
-                IsLightDismissEnabled = true,
+                // The popup should not interfere with the pointer input. Popup visibility is
+                // controlled explicitly.
+                IsLightDismissEnabled = false,
+
                 PlacementTarget = this,
                 Child = _toolTipContent,
             };
 
             LogicalChildren.Add(_toolTip);
-            
+
             //_toolTip.Closed += (o, e) => ((Popup)o).Child = null;
-            
+
             AttachEvents();
         }
-        
+
         protected override void OnClosed()
         {
             base.OnClosed();
@@ -153,17 +160,23 @@ namespace AvaloniaEdit.CodeCompletion
             item?.Complete(TextArea, new AnchorSegment(TextArea.Document, StartOffset, EndOffset - StartOffset), e);
         }
 
+        private void CompletionList_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            MinWidth = Math.Max(MinWidth, CompletionList.Bounds.Width);
+        }
+
         private void AttachEvents()
         {
             this.ApplyTemplate();
 
             CompletionList.InsertionRequested += CompletionList_InsertionRequested;
+            CompletionList.ListBox.SelectionChanged += UpdateTooltip;
+            CompletionList.SizeChanged += CompletionList_SizeChanged;
             CompletionList.ListBox.PropertyChanged += CompletionList_PropertyChanged;
             TextArea.Caret.PositionChanged += CaretPositionChanged;
             TextArea.PointerWheelChanged += TextArea_MouseWheel;
             TextArea.TextInput += TextArea_PreviewTextInput;
             Opened += UpdateTooltip;
-            CompletionList.ListBox.SelectionChanged += UpdateTooltip;
         }
 
         /// <inheritdoc/>
@@ -171,11 +184,12 @@ namespace AvaloniaEdit.CodeCompletion
         {
             CompletionList.InsertionRequested -= CompletionList_InsertionRequested;
             CompletionList.ListBox.PropertyChanged -= CompletionList_PropertyChanged;
+            CompletionList.ListBox.SelectionChanged -= UpdateTooltip;
+            CompletionList.SizeChanged -= CompletionList_SizeChanged;
             TextArea.Caret.PositionChanged -= CaretPositionChanged;
             TextArea.PointerWheelChanged -= TextArea_MouseWheel;
             TextArea.TextInput -= TextArea_PreviewTextInput;
             Opened -= UpdateTooltip;
-            CompletionList.ListBox.SelectionChanged -= UpdateTooltip;
             base.DetachEvents();
         }
 
@@ -241,8 +255,8 @@ namespace AvaloniaEdit.CodeCompletion
                 {
                     CompletionList.SelectItem(string.Empty);
 
-                    if (CompletionList.ListBox.ItemCount == 0) IsVisible = false;
-                    else IsVisible = true;
+                    if (CompletionList.ListBox.ItemCount == 0) CompletionList.IsVisible = false;
+                    else CompletionList.IsVisible = true;
                 }
                 return;
             }
@@ -260,8 +274,8 @@ namespace AvaloniaEdit.CodeCompletion
                 {
                     CompletionList.SelectItem(document.GetText(StartOffset, offset - StartOffset));
 
-                    if (CompletionList.ListBox.ItemCount == 0) IsVisible = false;
-                    else IsVisible = true;
+                    if (CompletionList.ListBox.ItemCount == 0) CompletionList.IsVisible = false;
+                    else CompletionList.IsVisible = true;
                 }
             }
         }

@@ -47,6 +47,8 @@ namespace AvaloniaEdit.Demo
         {
             InitializeComponent();
 
+            this.AttachDevTools();
+
             _textEditor = this.FindControl<TextEditor>("Editor");
             _textEditor.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Visible;
             _textEditor.Background = Brushes.Transparent;
@@ -55,12 +57,14 @@ namespace AvaloniaEdit.Demo
             _textEditor.TextArea.TextEntered += textEditor_TextArea_TextEntered;
             _textEditor.TextArea.TextEntering += textEditor_TextArea_TextEntering;
             _textEditor.Options.AllowToggleOverstrikeMode = true;
+            _textEditor.Options.EnableTextDragDrop = true;
             _textEditor.Options.ShowBoxForControlCharacters = true;
             _textEditor.Options.ColumnRulerPositions = new List<int>() { 80, 100 };
             _textEditor.TextArea.IndentationStrategy = new Indentation.CSharp.CSharpIndentationStrategy(_textEditor.Options);
             _textEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
             _textEditor.TextArea.RightClickMovesCaret = true;
             _textEditor.Options.HighlightCurrentLine = true;
+            _textEditor.Options.CompletionAcceptAction = CompletionAcceptAction.DoubleTapped;
 
             _addControlButton = this.FindControl<Button>("addControlBtn");
             _addControlButton.Click += AddControlButton_Click;
@@ -267,6 +271,7 @@ namespace AvaloniaEdit.Demo
         private void AddControlButton_Click(object sender, RoutedEventArgs e)
         {
             _generator.controls.Add(new Pair(_textEditor.CaretOffset, new Button() { Content = "Click me", Cursor = Cursor.Default }));
+            _generator.controls.Sort(0, _generator.controls.Count, _generator);
             _textEditor.TextArea.TextView.Redraw();
         }
 
@@ -285,7 +290,7 @@ namespace AvaloniaEdit.Demo
                 {
                     // Whenever a non-letter is typed while the completion window is open,
                     // insert the currently selected element.
-                    // _completionWindow.CompletionList.RequestInsertion(e);
+                    _completionWindow.CompletionList.RequestInsertion(e);
                 }
             }
 
@@ -297,20 +302,11 @@ namespace AvaloniaEdit.Demo
 
         private void textEditor_TextArea_TextEntered(object sender, TextInputEventArgs e)
         {
-            if (e.Text == "a")
-            {
-                _completionWindow = new CompletionWindow(_textEditor)
-                {
-                    StartOffset = _textEditor.CaretOffset - 1,
-                };
-                var data = _completionWindow.CompletionList.CompletionData;
-                data.Add(new MyCompletionData("naturalrange"));
-
-                _completionWindow.Show();
-            }
             if (e.Text == ".")
             {
+
                 _completionWindow = new CompletionWindow(_textEditor);
+                _completionWindow.Closed += (o, args) => _completionWindow = null;
 
                 var data = _completionWindow.CompletionList.CompletionData;
                 data.Add(new MyCompletionData("Item1"));
@@ -327,6 +323,12 @@ namespace AvaloniaEdit.Demo
                 data.Add(new MyCompletionData("Item13"));
                 data.Add(new MyCompletionData("component c"));
 
+                for (int i = 0; i < 500; i++)
+                {
+                    data.Add(new MyCompletionData("Item" + i.ToString()));
+                }
+
+                data.Insert(20, new MyCompletionData("long item to demosntrate dynamic poup resizing"));
 
                 _completionWindow.Show();
             }
@@ -445,14 +447,17 @@ namespace AvaloniaEdit.Demo
             public MyCompletionData(string text)
             {
                 InsertText = text;
+                Label = text;
             }
 
-            public IImage Image => null;
-
             public string InsertText { get; }
+            
+            public IImage Image => null;
+            
+            public string Label { get; }
 
             // Use this property if you want to show a fancy UIElement in the list.
-            public string Label => InsertText;
+            public object Content => _contentControl ??= BuildContentControl();
 
             public object Description => "Description for " + Label;
 
@@ -463,6 +468,17 @@ namespace AvaloniaEdit.Demo
             {
                 textArea.Document.Replace(completionSegment, InsertText);
             }
+
+            Control BuildContentControl()
+            {
+                TextBlock textBlock = new TextBlock();
+                textBlock.Text = InsertText;
+                textBlock.Margin = new Thickness(5);
+
+                return textBlock;
+            }
+
+            Control _contentControl;
         }
 
         class ElementGenerator : VisualLineElementGenerator, IComparer<Pair>
