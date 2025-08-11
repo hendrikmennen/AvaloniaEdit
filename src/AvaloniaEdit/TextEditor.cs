@@ -48,7 +48,7 @@ namespace AvaloniaEdit
         #region Constructors
         static TextEditor()
         {
-            FocusableProperty.OverrideDefaultValue<TextEditor>(true);
+            FocusableProperty.OverrideDefaultValue<TextEditor>(false);
             HorizontalScrollBarVisibilityProperty.OverrideDefaultValue<TextEditor>(ScrollBarVisibility.Auto);
             VerticalScrollBarVisibilityProperty.OverrideDefaultValue<TextEditor>(ScrollBarVisibility.Auto);
 
@@ -241,6 +241,16 @@ namespace AvaloniaEdit
         #endregion
 
         #region Text property
+        /// <summary>
+        /// Gets or sets the placeholder or descriptive text that is displayed even if the <see cref="Text"/>
+        /// property is not yet set.
+        /// </summary>
+        public string Watermark
+        {
+            get => textArea.Watermark;
+            set => textArea.Watermark = value;
+        }
+
         /// <summary>
         /// Gets/Sets the text of the current document.
         /// </summary>
@@ -540,7 +550,7 @@ namespace AvaloniaEdit
                 var line = (Line)DottedLineMargin.Create();
                 leftMargins.Insert(0, lineNumbers);
                 leftMargins.Insert(1, line);
-                var lineNumbersForeground = new Binding("LineNumbersForeground") { Source = editor };
+                var lineNumbersForeground = editor.GetBindingObservable(LineNumbersForegroundProperty);
                 line.Bind(Shape.StrokeProperty, lineNumbersForeground);
                 lineNumbers.Bind(ForegroundProperty, lineNumbersForeground);
             }

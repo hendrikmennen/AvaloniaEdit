@@ -7,6 +7,7 @@
     <PackageId>OneWare.AvaloniaEdit.TextMate</PackageId>
     <Description>TextMate integration for AvaloniaEdit.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageDescription>TextMate integration for AvaloniaEdit.</PackageDescription>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,8 +16,8 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
-    <PackageReference Include="TextMateSharp" Version="$(TextMateSharpVersion)" />
-    <PackageReference Include="TextMateSharp.Grammars" Version="$(TextMateSharpVersion)" />
+    <PackageReference Include="TextMateSharp" Version="1.0.70" />
+    <PackageReference Include="TextMateSharp.Grammars" Version="1.0.70" />
   </ItemGroup>
 
 </Project>

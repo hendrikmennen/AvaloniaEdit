@@ -40,11 +40,6 @@ namespace AvaloniaEdit.CodeCompletion
     /// </summary>
     public class CompletionWindowBase : Popup
     {
-        static CompletionWindowBase()
-        {
-            //BackgroundProperty.OverrideDefaultValue(typeof(CompletionWindowBase), Brushes.White);           
-        }
-
         protected override Type StyleKeyOverride => typeof(PopupRoot);
 
         /// <summary>
@@ -272,7 +267,6 @@ namespace AvaloniaEdit.CodeCompletion
             UpdatePosition();
         }
 
-        /// <inheritdoc/>
         private void OnDeactivated(object sender, EventArgs e)
         {
             Dispatcher.UIThread.Post(CloseIfFocusLost, DispatcherPriority.Background);
@@ -323,8 +317,7 @@ namespace AvaloniaEdit.CodeCompletion
         {
             if (CloseOnFocusLost)
             {
-                Debug.WriteLine("CloseIfFocusLost: this.IsFocues=" + IsFocused + " IsTextAreaFocused=" + IsTextAreaFocused);
-                if (!IsFocused && !IsTextAreaFocused)
+                if ((Child == null || !Child.IsKeyboardFocusWithin)  && !IsTextAreaFocused)
                 {
                     Hide();
                 }

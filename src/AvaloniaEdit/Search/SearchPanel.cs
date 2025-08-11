@@ -42,6 +42,7 @@ namespace AvaloniaEdit.Search
         private TextDocument _currentDocument;
         private SearchResultBackgroundRenderer _renderer;
         private TextBox _searchTextBox;
+        private TextBox _replaceTextBox;
         private TextEditor _textEditor { get; set; }
         private Border _border;
         private int _currentSearchResultIndex = -1;
@@ -146,7 +147,6 @@ namespace AvaloniaEdit.Search
         {
             if (e.Sender is SearchPanel panel)
             {
-                panel.ValidateSearchText();
                 panel.UpdateSearch();
             }
         }
@@ -158,7 +158,7 @@ namespace AvaloniaEdit.Search
             // if results are found by the next run, the message will be hidden inside DoSearch ...
             try
             {
-                if (_renderer.CurrentResults.Any())
+                if (_renderer.CurrentResults.Any() && _messageView != null)
                     _messageView.IsVisible = false;
                 _strategy = SearchStrategyFactory.Create(SearchPattern ?? "", !MatchCase, WholeWords, UseRegex ? SearchMode.RegEx : SearchMode.Normal);
                 OnSearchOptionsChanged(new SearchOptionsChangedEventArgs(SearchPattern, MatchCase, UseRegex, WholeWords));
@@ -195,6 +195,7 @@ namespace AvaloniaEdit.Search
             panel._handler = new SearchInputHandler(textArea, panel);
             textArea.DefaultInputHandler.NestedInputHandlers.Add(panel._handler);
             ((ISetLogicalParent)panel).SetParent(textArea);
+            KeyboardNavigation.SetTabNavigation(panel, KeyboardNavigationMode.Cycle);
             return panel;
         }
 
@@ -230,6 +231,12 @@ namespace AvaloniaEdit.Search
             _textArea.DocumentChanged += TextArea_DocumentChanged;
             KeyDown += SearchLayerKeyDown;
 
+            CommandBindings.Add(new RoutedCommandBinding(ApplicationCommands.SelectAll, (sender, e) => SelectAll(e)));
+            CommandBindings.Add(new RoutedCommandBinding(ApplicationCommands.Copy, (sender, e) => Copy(e)));
+            CommandBindings.Add(new RoutedCommandBinding(ApplicationCommands.Cut, (sender, e) => Cut(e)));
+            CommandBindings.Add(new RoutedCommandBinding(ApplicationCommands.Paste, (sender, e) => Paste(e)));
+            CommandBindings.Add(new RoutedCommandBinding(ApplicationCommands.Undo, (sender, e) => Undo(e)));
+            CommandBindings.Add(new RoutedCommandBinding(ApplicationCommands.Redo, (sender, e) => Redo(e)));
             CommandBindings.Add(new RoutedCommandBinding(SearchCommands.FindNext, (sender, e) => FindNext()));
             CommandBindings.Add(new RoutedCommandBinding(SearchCommands.FindPrevious, (sender, e) => FindPrevious()));
             CommandBindings.Add(new RoutedCommandBinding(SearchCommands.CloseSearchPanel, (sender, e) => Close()));
@@ -268,16 +275,9 @@ namespace AvaloniaEdit.Search
             base.OnApplyTemplate(e);
             _border = e.NameScope.Find<Border>("PART_Border");
             _searchTextBox = e.NameScope.Find<TextBox>("PART_searchTextBox");
+            _replaceTextBox = e.NameScope.Find<TextBox>("PART_replaceTextBox");
             _messageView = e.NameScope.Find<Panel>("PART_MessageView");
             _messageViewContent = e.NameScope.Find<TextBlock>("PART_MessageContent");
-        }
-
-        private void ValidateSearchText()
-        {
-            if (_searchTextBox == null)
-                return;
-
-            UpdateSearch();
         }
 
         /// <summary>
@@ -292,18 +292,94 @@ namespace AvaloniaEdit.Search
             _searchTextBox.SelectionEnd = _searchTextBox.Text?.Length ?? 0;
         }
 
-        /// <summary>
-        /// Moves to the next occurrence in the file.
-        /// </summary>
-        public void FindNext()
+        void SelectAll(ExecutedRoutedEventArgs e)
         {
-            var result = _renderer.CurrentResults.FindFirstSegmentWithStartAfter(_textArea.Caret.Offset + 1) ??
+            TextBox focusedTextBox = GetFocusedTextBox();
+
+            if (focusedTextBox == null)
+                return;
+
+            e.Handled = true;
+            focusedTextBox.SelectAll();
+        }
+
+        void Cut(ExecutedRoutedEventArgs e)
+        {
+            TextBox focusedTextBox = GetFocusedTextBox();
+
+            if (focusedTextBox == null)
+                return;
+
+            e.Handled = true;
+            focusedTextBox.Cut();
+        }
+
+        void Copy(ExecutedRoutedEventArgs e)
+        {
+            TextBox focusedTextBox = GetFocusedTextBox();
+
+            if (focusedTextBox == null)
+                return;
+
+            e.Handled = true;
+            focusedTextBox.Copy();
+        }
+
+        void Paste(ExecutedRoutedEventArgs e)
+        {
+            TextBox focusedTextBox = GetFocusedTextBox();
+
+            if (focusedTextBox == null)
+                return;
+
+            e.Handled = true;
+            focusedTextBox.Paste();
+        }
+
+        void Undo(ExecutedRoutedEventArgs e)
+        {
+            TextBox focusedTextBox = GetFocusedTextBox();
+
+            if (focusedTextBox == null)
+                return;
+
+            e.Handled = true;
+            focusedTextBox.Undo();
+        }
+
+        void Redo(ExecutedRoutedEventArgs e)
+        {
+            TextBox focusedTextBox = GetFocusedTextBox();
+
+            if (focusedTextBox == null)
+                return;
+
+            e.Handled = true;
+            focusedTextBox.Redo();
+        }
+
+        TextBox GetFocusedTextBox()
+        {
+            if (_searchTextBox.IsFocused)
+                return _searchTextBox;
+
+            if (_replaceTextBox.IsFocused)
+                return _replaceTextBox;
+
+            return null;
+        }
+
+
+        /// <summary>
+        /// Moves to the next occurrence in the file starting at the next position from current caret offset.
+        /// </summary>
+        public void FindNext(int startOffset = -1)
+        {
+            var result = _renderer.CurrentResults.FindFirstSegmentWithStartAfter(startOffset == -1 ? _textArea.Caret.Offset : startOffset) ??
                          _renderer.CurrentResults.FirstSegment;
             if (result != null)
             {
-                _currentSearchResultIndex = GetSearchResultIndex(_renderer.CurrentResults, result);
-                SelectResult(result);
-                UpdateSearchLabel();
+                SetCurrentSearchResult(result);
             }
         }
 
@@ -312,16 +388,15 @@ namespace AvaloniaEdit.Search
         /// </summary>
         public void FindPrevious()
         {
-            var result = _renderer.CurrentResults.FindFirstSegmentWithStartAfter(_textArea.Caret.Offset);
+            var result = _renderer.CurrentResults.FindFirstSegmentWithStartAfter(
+                Math.Max(_textArea.Caret.Offset - _textArea.Selection.Length, 0));
             if (result != null)
                 result = _renderer.CurrentResults.GetPreviousSegment(result);
             if (result == null)
                 result = _renderer.CurrentResults.LastSegment;
             if (result != null)
             {
-                _currentSearchResultIndex = GetSearchResultIndex(_renderer.CurrentResults, result);
-                SelectResult(result);
-                UpdateSearchLabel();
+                SetCurrentSearchResult(result);
             }
         }
 
@@ -329,7 +404,7 @@ namespace AvaloniaEdit.Search
         {
             if (!IsReplaceMode) return;
 
-            FindNext();
+            FindNext(Math.Max(_textArea.Caret.Offset - _textArea.Selection.Length, 0));
             if (!_textArea.Selection.IsEmpty)
             {
                 _textArea.Selection.ReplaceSelectionWithText(ReplacePattern ?? string.Empty);
@@ -358,6 +433,13 @@ namespace AvaloniaEdit.Search
         private Panel _messageView;
         private TextBlock _messageViewContent;
 
+        private void SetCurrentSearchResult(SearchResult result)
+        {
+            _currentSearchResultIndex = GetSearchResultIndex(_renderer.CurrentResults, result);
+            SelectResult(result);
+            UpdateSearchLabel();
+        }
+
         private void DoSearch(bool changeSelection)
         {
             if (IsClosed)
@@ -365,24 +447,32 @@ namespace AvaloniaEdit.Search
 
             CleanSearchResults();
 
+            var offset = Math.Max(_textArea.Caret.Offset - _textArea.Selection.Length, 0);
+
+            if (changeSelection)
+            {
+                _textArea.ClearSelection();
+            }
+            
             if (!string.IsNullOrEmpty(SearchPattern))
             {
-                var offset = _textArea.Caret.Offset;
-                if (changeSelection)
-                {
-                    _textArea.ClearSelection();
-                }
-
                 // We cast from ISearchResult to SearchResult; this is safe because we always use the built-in strategy
                 foreach (var result in _strategy.FindAll(_textArea.Document, 0, _textArea.Document.TextLength).Cast<SearchResult>())
                 {
                     _renderer.CurrentResults.Add(result);
-                    if (changeSelection && result.StartOffset >= offset)
-                    {
+                }
+
+                if (changeSelection)
+                {
+                    // select the first result after the caret position
+                    // or the first result in document order if there is no result after the caret
+                    var result = _renderer.CurrentResults.FindFirstSegmentWithStartAfter(offset) ??
+                                 _renderer.CurrentResults.FirstSegment;
+
+                    if (result != null)
                         SelectResult(result);
-                        _currentSearchResultIndex = _renderer.CurrentResults.Count - 1;
-                        changeSelection = false;
-                    }
+
+                    _currentSearchResultIndex = _renderer.CurrentResults.Count - 1;
                 }
             }
 
@@ -434,7 +524,7 @@ namespace AvaloniaEdit.Search
 
         private void SelectResult(TextSegment result)
         {
-            _textArea.Caret.Offset = result.StartOffset;
+            _textArea.Caret.Offset = result.EndOffset;
             _textArea.Selection = Selection.Create(_textArea, result.StartOffset, result.EndOffset);
 
             double distanceToViewBorder = _border == null ?
@@ -484,7 +574,10 @@ namespace AvaloniaEdit.Search
         public void Close()
         {
             _textArea.RemoveChild(this);
-            _messageView.IsVisible = false;
+
+            if (_messageView != null)
+                _messageView.IsVisible = false;
+
             _textArea.TextView.BackgroundRenderers.Remove(_renderer);
             
             IsClosed = true;

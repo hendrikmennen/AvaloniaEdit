@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
 
 using AvaloniaEdit.Document;
-
+using TextMateSharp.Themes;
 using AM = Avalonia.Media;
 
 namespace AvaloniaEdit.TextMate
@@ -13,16 +14,11 @@ namespace AvaloniaEdit.TextMate
 
     public class ForegroundTextTransformation : TextTransformation
     {
-        public interface IColorMap
-        {
-            AM.IBrush GetBrush(int color);
-        }
-
-        public IColorMap ColorMap { get; set; }
+        public Dictionary<int, AM.IBrush> ColorMap { get; set; }
         public Action<Exception> ExceptionHandler { get; set; }
         public int ForegroundColor { get; set; }
         public int BackgroundColor { get; set; }
-        public int FontStyle { get; set; }
+        public FontStyle FontStyle { get; set; }
 
         public override void Transform(GenericLineTransformer transformer, DocumentLine line)
         {
@@ -47,13 +43,13 @@ namespace AvaloniaEdit.TextMate
                 }
 
                 transformer.SetTextStyle(line, formattedOffset, endOffset - line.Offset - formattedOffset,
-                ColorMap.GetBrush(ForegroundColor),
-                ColorMap.GetBrush(BackgroundColor),
-                GetFontStyle(),
-                GetFontWeight(),
-                IsUnderline());
+                    GetBrush(ForegroundColor),
+                    GetBrush(BackgroundColor),
+                    GetFontStyle(),
+                    GetFontWeight(),
+                    IsUnderline());
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 ExceptionHandler?.Invoke(ex);
             }
@@ -84,6 +80,15 @@ namespace AvaloniaEdit.TextMate
                 return true;
 
             return false;
+        }
+
+        AM.IBrush GetBrush(int colorId)
+        {
+            if (ColorMap == null)
+                return null;
+
+            ColorMap.TryGetValue(colorId, out AM.IBrush result);
+            return result;
         }
     }
 }

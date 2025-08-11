@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -26,6 +27,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Templates;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit.Utils;
 
 namespace AvaloniaEdit.CodeCompletion
@@ -35,18 +38,6 @@ namespace AvaloniaEdit.CodeCompletion
     /// </summary>
     public class CompletionList : TemplatedControl
     {
-        public CompletionList()
-        {
-            DoubleTapped += OnDoubleTapped;
-
-            CompletionAcceptKeys = new[]
-            {
-                Key.Enter,
-                Key.Tab,
-            };
-        }
-
-
         /// <summary>
         /// If true, the CompletionList is filtered to show only matching items. Also enables search by substring.
         /// If false, enables the old behavior: no filtering, search by string.StartsWith.
@@ -93,6 +84,7 @@ namespace AvaloniaEdit.CodeCompletion
             if (_listBox != null)
             {
                 _listBox.ItemsSource = _completionData;
+                AddPointerHandler(CompletionAcceptAction);
             }
         }
 
@@ -110,16 +102,35 @@ namespace AvaloniaEdit.CodeCompletion
         }
 
         /// <summary>
-        /// Gets or sets the array of keys that are supposed to request insertation of the completion
+        /// Gets or sets the pointer action used to request insertion of a completion item.
         /// </summary>
-        public Key[] CompletionAcceptKeys { get; set; }
+        public CompletionAcceptAction CompletionAcceptAction
+        {
+            get => _completionAcceptAction;
+            set
+            {
+                if (_completionAcceptAction == value)
+                    return;
+
+                RemovePointerHandler(_completionAcceptAction);
+                _completionAcceptAction = value;
+                AddPointerHandler(value);
+            }
+        }
+
+        private CompletionAcceptAction _completionAcceptAction;
+
+        /// <summary>
+        /// Gets or sets the array of keys that are supposed to request insertion of the completion.
+        /// </summary>
+        public Key[] CompletionAcceptKeys { get; set; } = new[] { Key.Enter, Key.Tab };
 
         /// <summary>
         /// Gets the scroll viewer used in this list box.
         /// </summary>
         public ScrollViewer ScrollViewer => _listBox?.ScrollViewer;
 
-        private readonly ObservableCollection<ICompletionData> _completionData = new ObservableCollection<ICompletionData>();
+        private readonly List<ICompletionData> _completionData = new List<ICompletionData>();
 
         /// <summary>
         /// Gets the list to which completion data can be added.
@@ -145,6 +156,9 @@ namespace AvaloniaEdit.CodeCompletion
             if (_listBox == null)
                 return;
 
+            if (_listBox.Items.Count == 0)
+                return;
+
             // We have to do some key handling manually, because the default doesn't work with
             // our simulated events.
             // Also, the default PageUp/PageDown implementation changes the focus, so we avoid it.
@@ -152,11 +166,13 @@ namespace AvaloniaEdit.CodeCompletion
             {
                 case Key.Down:
                     e.Handled = true;
-                    _listBox.SelectIndex(_listBox.SelectedIndex + 1);
+                    _listBox.SelectIndex((_listBox.SelectedIndex + 1) % _listBox.Items.Count);
                     break;
                 case Key.Up:
                     e.Handled = true;
-                    _listBox.SelectIndex(_listBox.SelectedIndex - 1);
+                    _listBox.SelectIndex(_listBox.SelectedIndex == 0
+                        ? _listBox.Items.Count - 1
+                        : _listBox.SelectedIndex - 1);
                     break;
                 case Key.PageDown:
                     e.Handled = true;
@@ -185,15 +201,76 @@ namespace AvaloniaEdit.CodeCompletion
             }
         }
 
-        protected void OnDoubleTapped(object sender, RoutedEventArgs e)
+        private void AddPointerHandler(CompletionAcceptAction completionAcceptAction)
         {
-            //TODO TEST
-            if (((AvaloniaObject)e.Source).VisualAncestorsAndSelf()
-                    .TakeWhile(obj => obj != this).Any(obj => obj is ListBoxItem))
+            if (_listBox == null)
+                return;
+
+            switch (completionAcceptAction)
             {
-                e.Handled = true;
-                RequestInsertion(e);
+                case CompletionAcceptAction.PointerPressed:
+                    _listBox.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, true);
+                    break;
+                case CompletionAcceptAction.PointerReleased:
+                    _listBox.AddHandler(PointerReleasedEvent, OnPointerReleased);
+                    break;
+                case CompletionAcceptAction.DoubleTapped:
+                    AddHandler(DoubleTappedEvent, OnDoubleTapped);
+                    _listBox.AddHandler(DoubleTappedEvent, OnDoubleTapped);
+                    break;
+                default:
+                    Debug.Fail("Invalid CompletionAcceptAction");
+                    break;
             }
+        }
+
+        private void RemovePointerHandler(CompletionAcceptAction completionAcceptAction)
+        {
+            if (_listBox == null)
+                return;
+
+            switch (completionAcceptAction)
+            {
+                case CompletionAcceptAction.PointerPressed:
+                    _listBox.RemoveHandler(PointerPressedEvent, OnPointerPressed);
+                    break;
+                case CompletionAcceptAction.PointerReleased:
+                    _listBox.RemoveHandler(PointerReleasedEvent, OnPointerReleased);
+                    break;
+                case CompletionAcceptAction.DoubleTapped:
+                    _listBox.RemoveHandler(DoubleTappedEvent, OnDoubleTapped);
+                    break;
+                default:
+                    Debug.Fail("Invalid CompletionAcceptAction");
+                    break;
+            }
+        }
+
+        private void OnPointerPressed(object sender, PointerPressedEventArgs e)
+        {
+            var visual = e.Source as Visual;
+            if (!e.GetCurrentPoint(visual).Properties.IsLeftButtonPressed) 
+                return;
+
+            RequestInsertion(e);
+        }
+
+        private void OnPointerReleased(object sender, PointerReleasedEventArgs e)
+        {
+            if (e.InitialPressMouseButton != MouseButton.Left)
+                return;
+
+            // Ignore event if pointer is released outside the selected item.
+            var listBoxItem = _listBox.ContainerFromIndex(_listBox.SelectedIndex);
+            if (listBoxItem == null || !this.GetVisualsAt(e.GetPosition(this)).Any(v => v == listBoxItem || listBoxItem.IsVisualAncestorOf(v)))
+                return;
+
+            RequestInsertion(e);
+        }
+
+        private void OnDoubleTapped(object sender, TappedEventArgs e)
+        {
+            RequestInsertion(e);
         }
 
         /// <summary>
@@ -237,7 +314,7 @@ namespace AvaloniaEdit.CodeCompletion
         // SelectItem gets called twice for every typed character (once from FormatLine), this helps execute SelectItem only once
         private string _currentText;
 
-        private ObservableCollection<ICompletionData> _currentList;
+        private List<ICompletionData> _currentList;
 
         public List<ICompletionData> CurrentList
         {
@@ -284,7 +361,7 @@ namespace AvaloniaEdit.CodeCompletion
             // e.g. "DateTimeKind k = (*cc here suggests DateTimeKind*)"
             var suggestedItem = _listBox.SelectedIndex != -1 ? (ICompletionData)_listBox.SelectedItem : null;
 
-            var listBoxItems = new ObservableCollection<ICompletionData>();
+            var listBoxItems = new List<ICompletionData>();
             var bestIndex = -1;
             var bestQuality = -1;
             double bestPriority = 0;
@@ -306,7 +383,7 @@ namespace AvaloniaEdit.CodeCompletion
             _currentList = listBoxItems;
             //_listBox.Items = null; Makes no sense? Tooltip disappeared because of this
             _listBox.ItemsSource = listBoxItems;
-            SelectIndexCentered(bestIndex);
+            Dispatcher.UIThread.Post(() => { SelectIndexCentered(bestIndex); }, DispatcherPriority.Loaded);
         }
 
         /// <summary>
