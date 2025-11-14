@@ -755,6 +755,23 @@ namespace AvaloniaEdit.Editing
             get => GetValue(RightClickMovesCaretProperty);
             set => SetValue(RightClickMovesCaretProperty, value);
         }
+
+        /// <summary>
+        /// Defines the <see cref="CaretBrush"/> property
+        /// </summary>
+        public static readonly DirectProperty<TextArea, IBrush> CaretBrushProperty =
+            AvaloniaProperty.RegisterDirect<TextArea, IBrush>(nameof(CaretBrush),
+                getter: (textArea) => textArea.Caret.CaretBrush,
+                setter: (textArea, brush) => textArea.Caret.CaretBrush = brush);
+
+        /// <summary>
+        /// Gets or sets the brush used for Caret.
+        /// </summary>
+        public IBrush CaretBrush
+        {
+            get => GetValue(CaretBrushProperty);
+            set => SetValue(CaretBrushProperty, value);
+        }
         #endregion
 
         #region Focus Handling (Show/Hide Caret)
@@ -1193,6 +1210,10 @@ namespace AvaloniaEdit.Editing
                     }
 
                     var rect = _textArea.Caret.CalculateCaretRectangle().TransformToAABB(transform.Value);
+
+                    var scrollOffset = _textArea.TextView.ScrollOffset;
+
+                    rect = rect.WithX(rect.X - scrollOffset.X).WithY(rect.Y - scrollOffset.Y);
 
                     return rect;
                 }

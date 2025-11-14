@@ -4,17 +4,18 @@ using AvaloniaEdit.Utils;
 
 namespace AvaloniaEdit.Document;
 
-public class DataObjectCopyingEventArgs :
-    RoutedEventArgs
+public class DataObjectCopyingEventArgs : RoutedEventArgs
 {
-    public DataObjectCopyingEventArgs(IDataObject dataObject, bool isDragDrop) : base(DataObjectEx.DataObjectCopyingEvent)
+    public bool CommandCancelled { get; private set; }
+    public IDataObject DataObject { get; private set; }
+    public bool IsDragDrop { get; private set; }
+
+    public DataObjectCopyingEventArgs(IDataObject dataObject, bool isDragDrop) :
+        base(DataObjectEx.DataObjectCopyingEvent)
     {
         DataObject = dataObject;
         IsDragDrop = isDragDrop;
     }
 
-    public bool CommandCancelled { get; private set; }
-    public IDataObject DataObject { get; }
-    public bool IsDragDrop { get; }
     public void CancelCommand() => CommandCancelled = true;
 }
