@@ -1113,6 +1113,10 @@ namespace AvaloniaEdit.Editing
         /// </summary>
         public event EventHandler<TextEventArgs> TextCopied;
 
+        /// <summary>
+        /// Accurs when new text is pasted inside the TextArea.
+        /// </summary>
+        public event EventHandler<TextEventArgs> TextPasted;
 
         event EventHandler ILogicalScrollable.ScrollInvalidated
         {
@@ -1123,6 +1127,11 @@ namespace AvaloniaEdit.Editing
         internal void OnTextCopied(TextEventArgs e)
         {
             TextCopied?.Invoke(this, e);
+        }
+
+        internal void OnTextPasted(TextEventArgs e)
+        {
+            TextPasted?.Invoke(this, e);
         }
 
         public IList<RoutedCommandBinding> CommandBindings { get; } = new List<RoutedCommandBinding>();

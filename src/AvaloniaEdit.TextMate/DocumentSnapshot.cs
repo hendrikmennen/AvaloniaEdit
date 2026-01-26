@@ -55,6 +55,15 @@ namespace AvaloniaEdit.TextMate
             }
         }
 
+        public ReadOnlyMemory<char> GetLineTextIncludingTerminatorAsMemory(int lineIndex)
+        {
+            lock (_lock)
+            {
+                var lineRange = _lineRanges[lineIndex];
+                return _textSource.GetTextAsMemory(lineRange.Offset, lineRange.TotalLength);
+            }
+        }
+
         public string GetLineTerminator(int lineIndex)
         {
             lock (_lock)
