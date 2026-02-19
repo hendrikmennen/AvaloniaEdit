@@ -21,9 +21,7 @@ using Avalonia;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Threading;
 
 namespace AvaloniaEdit.CodeCompletion
 {
@@ -43,11 +41,11 @@ namespace AvaloniaEdit.CodeCompletion
         /// <summary>
         /// Creates a new code completion window.
         /// </summary>
-        public CompletionWindow(TextEditor editor) : base(editor)
+        public CompletionWindow(TextEditor textArea) : base(textArea)
         {
             CompletionList = new CompletionList
             {
-                CompletionAcceptAction = editor.Options.CompletionAcceptAction
+                CompletionAcceptAction = textArea.Options.CompletionAcceptAction
             };
 
             // keep height automatic
@@ -92,64 +90,54 @@ namespace AvaloniaEdit.CodeCompletion
 
         #region ToolTip handling
 
-        private void UpdateTooltip(object sender, EventArgs e)
+        private void CompletionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_toolTipContent == null) return;
 
-            Dispatcher.UIThread.Post(() =>
+            var item = CompletionList.SelectedItem;
+            var description = item?.Description;
+            
+    
+            if (description != null && Host is Control placementTarget && CompletionList.CurrentList != null)
             {
-                if(!IsOpen) return;
-                
-                var item = CompletionList.SelectedItem;
-                var description = item?.Description;
-                
-                if (description != null && Host is Control placementTarget && CompletionList.CurrentList != null)
-                {
-                    _toolTipContent.Content = description;
+                _toolTipContent.Content = description;
 
-                    double yOffset = 0;
-                    var selectedIndex = CompletionList.ListBox.SelectedIndex;
+                double yOffset = 0;
+                var selectedIndex = CompletionList.ListBox.SelectedIndex;
                     
-                    var itemContainer = CompletionList.ListBox.ContainerFromIndex(selectedIndex);
+                var itemContainer = CompletionList.ListBox.ContainerFromIndex(selectedIndex);
                     
-                    if (itemContainer != null)
+                if (itemContainer != null)
+                {
+                    _toolTip.Placement = PlacementMode.RightEdgeAlignedTop;
+                    var position = itemContainer.TranslatePoint(new Point(0, 0), placementTarget);
+                    if (position.HasValue) yOffset = position.Value.Y;
+                }
+                else 
+                {
+                    //When scrolling down the container is not always ready
+                    //If that happens we align the tooltip at the bottom or top
+                    if (CompletionList.ListBox.FirstVisibleItem < selectedIndex)
+                    {
+                        _toolTip.Placement = PlacementMode.RightEdgeAlignedBottom;
+                    }
+                    else
                     {
                         _toolTip.Placement = PlacementMode.RightEdgeAlignedTop;
-                        var position = itemContainer.TranslatePoint(new Point(0, 0), placementTarget);
-                        if (position.HasValue) yOffset = position.Value.Y;
                     }
-                    else 
-                    {
-                        //When scrolling down the container is not always ready
-                        //If that happens we align the tooltip at the bottom or top
-                        if (CompletionList.ListBox.FirstVisibleItem < selectedIndex)
-                        {
-                            _toolTip.Placement = PlacementMode.RightEdgeAlignedBottom;
-                        }
-                        else
-                        {
-                            _toolTip.Placement = PlacementMode.RightEdgeAlignedTop;
-                        }
-                    }
+                }
                    
-                    _toolTip.Offset = new Point(2, yOffset);
-                    _toolTip.PlacementTarget = placementTarget;
-                    _toolTip.IsOpen = true;
-                }
-                else
-                {
-                    _toolTip.IsOpen = false;
-                }
-            });
+                _toolTip.Offset = new Point(2, yOffset);
+                _toolTip.PlacementTarget = placementTarget;
+                _toolTip.IsOpen = true;
+            }
+            else
+            {
+                _toolTip.IsOpen = false;
+            }
         }
-
 
         #endregion
-
-        private void CompletionList_PropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)
-        {
-            if (e.Property == TemplatedControl.FontSizeProperty) UpdatePosition();
-        }
 
         private void CompletionList_InsertionRequested(object sender, EventArgs e)
         {
@@ -167,36 +155,29 @@ namespace AvaloniaEdit.CodeCompletion
 
         private void AttachEvents()
         {
-            this.ApplyTemplate();
-
             CompletionList.InsertionRequested += CompletionList_InsertionRequested;
-            CompletionList.ListBox.SelectionChanged += UpdateTooltip;
+            CompletionList.SelectionChanged += CompletionList_SelectionChanged;
             CompletionList.SizeChanged += CompletionList_SizeChanged;
-            CompletionList.ListBox.PropertyChanged += CompletionList_PropertyChanged;
             TextArea.Caret.PositionChanged += CaretPositionChanged;
             TextArea.PointerWheelChanged += TextArea_MouseWheel;
             TextArea.TextInput += TextArea_PreviewTextInput;
-            Opened += UpdateTooltip;
         }
 
         /// <inheritdoc/>
         protected override void DetachEvents()
         {
             CompletionList.InsertionRequested -= CompletionList_InsertionRequested;
-            CompletionList.ListBox.PropertyChanged -= CompletionList_PropertyChanged;
-            CompletionList.ListBox.SelectionChanged -= UpdateTooltip;
+            CompletionList.SelectionChanged -= CompletionList_SelectionChanged;
             CompletionList.SizeChanged -= CompletionList_SizeChanged;
             TextArea.Caret.PositionChanged -= CaretPositionChanged;
             TextArea.PointerWheelChanged -= TextArea_MouseWheel;
             TextArea.TextInput -= TextArea_PreviewTextInput;
-            Opened -= UpdateTooltip;
             base.DetachEvents();
         }
 
         /// <inheritdoc/>
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (!IsOpen) return;
             base.OnKeyDown(e);
             if (!e.Handled)
             {
@@ -206,14 +187,12 @@ namespace AvaloniaEdit.CodeCompletion
 
         private void TextArea_PreviewTextInput(object sender, TextInputEventArgs e)
         {
-            if (!IsOpen) return;
             e.Handled = RaiseEventPair(this, null, TextInputEvent,
                                        new TextInputEventArgs { Text = e.Text });
         }
 
         private void TextArea_MouseWheel(object sender, PointerWheelEventArgs e)
         {
-            if (!IsOpen) return;
             e.Handled = RaiseEventPair(GetScrollEventTarget(),
                                        null, PointerWheelChangedEvent, e);
         }
