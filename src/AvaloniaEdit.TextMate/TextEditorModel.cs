@@ -17,6 +17,16 @@ namespace AvaloniaEdit.TextMate
 {
     public class TextEditorModel : AbstractLineList, IDisposable
     {
+        /// <summary>
+        /// Lines longer than this length (in characters, excluding the line
+        /// terminator) are not syntax highlighted at all: they are skipped by the
+        /// TextMate tokenizer. Some grammars (e.g. VHDL) exhibit catastrophic regex
+        /// backtracking on very long lines, and because that cost is superlinear,
+        /// truncating is not enough - such lines must be skipped entirely to keep the
+        /// editor responsive. Set to a non-positive value to disable the limit.
+        /// </summary>
+        public static int MaxLineLengthToTokenize { get; set; } = 300;
+
         private readonly TextDocument _document;
         private readonly TextView _textView;
         private DocumentSnapshot _documentSnapshot;
@@ -71,7 +81,7 @@ namespace AvaloniaEdit.TextMate
 
         public override LineText GetLineTextIncludingTerminators(int lineIndex)
         {
-            return _documentSnapshot.GetLineTextIncludingTerminatorAsMemory(lineIndex);
+            return _documentSnapshot.GetLineTextIncludingTerminatorAsMemory(lineIndex, MaxLineLengthToTokenize);
         }
 
         public override int GetLineLength(int lineIndex)

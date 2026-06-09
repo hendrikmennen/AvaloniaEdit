@@ -107,8 +107,11 @@ namespace AvaloniaEdit.TextMate
 
         protected override void TransformLine(DocumentLine line, ITextRunConstructionContext context)
         {
-            //Temporary performance fix
-            if (line.Length > 300) return;
+            // Lines longer than the tokenization limit are only partially tokenized
+            // (or not at all) to avoid catastrophic regex backtracking in some grammars,
+            // so skip applying highlighting transformations to them.
+            int maxLineLength = TextEditorModel.MaxLineLengthToTokenize;
+            if (maxLineLength > 0 && line.Length > maxLineLength) return;
             
             try
             {

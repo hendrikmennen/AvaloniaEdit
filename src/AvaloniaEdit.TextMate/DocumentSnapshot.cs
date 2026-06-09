@@ -64,6 +64,39 @@ namespace AvaloniaEdit.TextMate
             }
         }
 
+        /// <summary>
+        /// Returns the text of a line including its terminator, unless the line is
+        /// longer than <paramref name="maxLength"/> characters (excluding the
+        /// terminator). In that case only the line terminator is returned so the
+        /// tokenizer effectively skips the line.
+        /// Some grammars exhibit catastrophic regex backtracking on very long lines
+        /// which can freeze the tokenization thread; the cost of backtracking is
+        /// superlinear, so truncating is not enough - the line must be skipped
+        /// entirely. The line terminator is preserved so the tokenizer still
+        /// recognizes the end of the line and keeps its state consistent.
+        /// </summary>
+        public ReadOnlyMemory<char> GetLineTextIncludingTerminatorAsMemory(int lineIndex, int maxLength)
+        {
+            lock (_lock)
+            {
+                var lineRange = _lineRanges[lineIndex];
+
+                if (maxLength < 0 || lineRange.Length <= maxLength)
+                    return _textSource.GetTextAsMemory(lineRange.Offset, lineRange.TotalLength);
+
+                int terminatorLength = lineRange.TotalLength - lineRange.Length;
+
+                if (terminatorLength <= 0)
+                    return ReadOnlyMemory<char>.Empty;
+
+                // Return only the line terminator so the tokenizer produces a single
+                // (default) token for this line without running the grammar over its
+                // potentially pathological content.
+                return _textSource.GetTextAsMemory(
+                    lineRange.Offset + lineRange.Length, terminatorLength);
+            }
+        }
+
         public string GetLineTerminator(int lineIndex)
         {
             lock (_lock)
