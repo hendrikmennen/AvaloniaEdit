@@ -37,18 +37,17 @@ namespace AvaloniaEdit.Highlighting
         private sealed class DelayLoadedHighlightingDefinition : IHighlightingDefinition
         {
             private readonly object _lockObj = new object();
-            private readonly string _name;
             private Func<IHighlightingDefinition> _lazyLoadingFunction;
             private IHighlightingDefinition _definition;
             private Exception _storedException;
 
             public DelayLoadedHighlightingDefinition(string name, Func<IHighlightingDefinition> lazyLoadingFunction)
             {
-                _name = name;
+                Name = name;
                 _lazyLoadingFunction = lazyLoadingFunction;
             }
 
-            public string Name => _name ?? GetDefinition().Name;
+            public string Name => field ?? GetDefinition().Name;
 
             [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes",
                                                              Justification = "The exception will be rethrown")]
@@ -127,7 +126,7 @@ namespace AvaloniaEdit.Highlighting
         {
             lock (_lockObj)
             {
-                return _highlightingsByName.TryGetValue(name, out var rh) ? rh : null;
+                return _highlightingsByName.GetValueOrDefault(name);
             }
         }
 
@@ -153,7 +152,7 @@ namespace AvaloniaEdit.Highlighting
         {
             lock (_lockObj)
             {
-                return _highlightingsByExtension.TryGetValue(extension, out var rh) ? rh : null;
+                return _highlightingsByExtension.GetValueOrDefault(extension);
             }
         }
 

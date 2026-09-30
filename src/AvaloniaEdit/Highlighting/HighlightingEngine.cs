@@ -22,7 +22,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using AvaloniaEdit.Document;
-using AvaloniaEdit.Utils;
 using SpanStack = System.Collections.Immutable.ImmutableStack<AvaloniaEdit.Highlighting.HighlightingSpan>;
 
 namespace AvaloniaEdit.Highlighting
@@ -32,7 +31,6 @@ namespace AvaloniaEdit.Highlighting
     /// </summary>
     public class HighlightingEngine
     {
-        private readonly HighlightingRuleSet _mainRuleSet;
         private SpanStack _spanStack = SpanStack.Empty;
 
         /// <summary>
@@ -40,7 +38,7 @@ namespace AvaloniaEdit.Highlighting
         /// </summary>
         public HighlightingEngine(HighlightingRuleSet mainRuleSet)
         {
-            _mainRuleSet = mainRuleSet ?? throw new ArgumentNullException(nameof(mainRuleSet));
+            CurrentRuleSet = mainRuleSet ?? throw new ArgumentNullException(nameof(mainRuleSet));
         }
 
         /// <summary>
@@ -241,7 +239,7 @@ namespace AvaloniaEdit.Highlighting
             get
             {
                 if (_spanStack.IsEmpty)
-                    return _mainRuleSet;
+                    return field;
                 return _spanStack.Peek().RuleSet ?? EmptyRuleSet;
             }
         }
@@ -342,7 +340,7 @@ namespace AvaloniaEdit.Highlighting
         private static Match[] AllocateMatchArray(int count)
         {
             if (count == 0)
-                return Empty<Match>.Array;
+                return Array.Empty<Match>();
             return new Match[count];
         }
         #endregion

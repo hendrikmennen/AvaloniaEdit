@@ -23,7 +23,6 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
 using AvaloniaEdit.Document;
-using AvaloniaEdit.Utils;
 using LogicalDirection = AvaloniaEdit.Document.LogicalDirection;
 
 namespace AvaloniaEdit.Rendering

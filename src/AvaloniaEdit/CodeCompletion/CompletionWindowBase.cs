@@ -30,7 +30,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using Avalonia.Controls.Primitives.PopupPositioning;
 
 namespace AvaloniaEdit.CodeCompletion
@@ -77,10 +76,10 @@ namespace AvaloniaEdit.CodeCompletion
         /// </summary>
         public CompletionWindowBase(TextEditor textEditor) : base()
         {
-            TextEditor = textEditor;
+            TextEditor = textEditor ?? throw new ArgumentNullException(nameof(textEditor));
             TextArea = textEditor.TextArea ?? throw new ArgumentNullException(nameof(TextArea));
-            _parentWindow = TextArea.GetVisualRoot() as Window;
-            
+            _parentWindow = TopLevel.GetTopLevel(TextArea) as Window;
+
 
             AddHandler(PointerReleasedEvent, OnMouseUp, handledEventsToo: true);
 
@@ -106,7 +105,6 @@ namespace AvaloniaEdit.CodeCompletion
         public void Show()
         {
             Height = double.NaN;
-            MinHeight = 0;
             
             if (_document != null && StartOffset != TextArea.Caret.Offset)
             {
@@ -131,7 +129,7 @@ namespace AvaloniaEdit.CodeCompletion
 
         private void AttachEvents()
         {
-            ((ISetLogicalParent)this).SetParent(TextArea.GetVisualRoot() as ILogical);
+            ((ISetLogicalParent)this).SetParent(TopLevel.GetTopLevel(TextArea) as ILogical);
 
             _document = TextArea.Document;
             if (_document != null)

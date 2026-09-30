@@ -465,7 +465,7 @@ namespace AvaloniaEdit.Editing
         /// </summary>
         public void BringCaretToView()
         {
-            BringCaretToView(0);
+            BringCaretToView(5.0);
         }
 
         public void BringCaretToView(double border)

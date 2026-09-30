@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using AvaloniaEdit.AvaloniaMocks;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AvaloniaEdit.Search;
 
@@ -204,6 +205,81 @@ public class SearchPanelTests
         textEditor.SearchPanel.ReplaceAll();
 
         Assert.AreEqual("bye world bye world", textEditor.Text);
+    }
+
+    [AvaloniaTest]
+    public void Replace_All_With_Regex_Should_Expand_Capture_Groups()
+    {
+        UnitTestApplication.InitializeStyles();
+
+        TextEditor textEditor = CreateEditor();
+        textEditor.Text = "Abcde\nAfgge\n";
+
+        textEditor.SearchPanel.UseRegex = true;
+        textEditor.SearchPanel.SearchPattern = "A.(..)e";
+        textEditor.SearchPanel.ReplacePattern = @"Ad\1e";
+        textEditor.SearchPanel.Open();
+        textEditor.SearchPanel.IsReplaceMode = true;
+        textEditor.SearchPanel.ReplaceAll();
+
+        Assert.AreEqual("Adcde\nAdgge\n", textEditor.Text);
+    }
+
+    [AvaloniaTest]
+    public void Replace_Next_With_Regex_Should_Expand_Capture_Groups()
+    {
+        UnitTestApplication.InitializeStyles();
+
+        TextEditor textEditor = CreateEditor();
+        textEditor.Text = "to_integer(a_s) + to_integer(b_s)";
+
+        textEditor.SearchPanel.UseRegex = true;
+        textEditor.SearchPanel.SearchPattern = @"to_integer\((?<sig>\w+)\)";
+        textEditor.SearchPanel.ReplacePattern = "to_int(${sig})";
+        textEditor.SearchPanel.Open();
+        textEditor.SearchPanel.IsReplaceMode = true;
+        textEditor.SearchPanel.ReplaceNext();
+
+        Assert.AreEqual("to_int(a_s) + to_integer(b_s)", textEditor.Text);
+
+        textEditor.SearchPanel.ReplaceNext();
+
+        Assert.AreEqual("to_int(a_s) + to_int(b_s)", textEditor.Text);
+    }
+
+    [AvaloniaTest]
+    public void Replace_Without_Regex_Should_Insert_Pattern_Literally()
+    {
+        UnitTestApplication.InitializeStyles();
+
+        TextEditor textEditor = CreateEditor();
+        textEditor.Text = "(a) (a)";
+
+        textEditor.SearchPanel.SearchPattern = "(a)";
+        textEditor.SearchPanel.ReplacePattern = @"$1\1";
+        textEditor.SearchPanel.Open();
+        textEditor.SearchPanel.IsReplaceMode = true;
+        textEditor.SearchPanel.ReplaceNext();
+
+        Assert.AreEqual(@"$1\1 (a)", textEditor.Text);
+
+        textEditor.SearchPanel.ReplaceAll();
+
+        Assert.AreEqual(@"$1\1 $1\1", textEditor.Text);
+    }
+
+    [TestCase(@"Ad\1e", "Ad${1}e")]
+    [TestCase("Ad$1e", "Ad$1e")]
+    [TestCase(@"\10", "${1}0")]
+    [TestCase(@"a\nb\tc", "a\nb\tc")]
+    [TestCase(@"C:\\temp", @"C:\temp")]
+    [TestCase(@"\\1", @"\1")]
+    [TestCase(@"a\x", @"a\x")]
+    [TestCase(@"end\", @"end\")]
+    [TestCase("", "")]
+    public void ToRegexReplacement_Converts_Backslash_Syntax(string input, string expected)
+    {
+        Assert.AreEqual(expected, SearchPanel.ToRegexReplacement(input));
     }
 
     static TextEditor CreateEditor()
