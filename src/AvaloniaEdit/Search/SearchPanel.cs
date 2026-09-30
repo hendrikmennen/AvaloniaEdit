@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -407,7 +408,11 @@ namespace AvaloniaEdit.Search
             FindNext(Math.Max(_textArea.Caret.Offset - _textArea.Selection.Length, 0));
             if (!_textArea.Selection.IsEmpty)
             {
-                _textArea.Selection.ReplaceSelectionWithText(ReplacePattern ?? string.Empty);
+                var selection = _textArea.Selection.SurroundingSegment;
+                var result = _renderer.CurrentResults.FindSegmentsContaining(selection.Offset)
+                    .FirstOrDefault(r => r.StartOffset == selection.Offset && r.Length == selection.Length);
+
+                _textArea.Selection.ReplaceSelectionWithText(GetReplacement(result));
             }
 
             UpdateSearch();
@@ -417,17 +422,76 @@ namespace AvaloniaEdit.Search
         {
             if (!IsReplaceMode) return;
 
-            var replacement = ReplacePattern ?? string.Empty;
             var document = _textArea.Document;
             using (document.RunUpdate())
             {
-                var segments = _renderer.CurrentResults.OrderByDescending(x => x.EndOffset).ToArray();
-                foreach (var textSegment in segments)
+                var replacements = _renderer.CurrentResults.OrderByDescending(x => x.EndOffset)
+                    .Select(x => (x.StartOffset, x.Length, Text: GetReplacement(x)))
+                    .ToArray();
+                foreach (var (offset, length, text) in replacements)
                 {
-                    document.Replace(textSegment.StartOffset, textSegment.Length,
-                        new StringTextSource(replacement));
+                    document.Replace(offset, length, new StringTextSource(text));
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the text that replaces <paramref name="result"/>. In regex mode the replace pattern can reference
+        /// capture groups (see <see cref="ToRegexReplacement"/>), otherwise it is inserted literally.
+        /// </summary>
+        private string GetReplacement(SearchResult result)
+        {
+            var replacement = ReplacePattern ?? string.Empty;
+            if (!UseRegex || result?.Data is not { Success: true } match)
+                return replacement;
+
+            return match.Result(ToRegexReplacement(replacement));
+        }
+
+        /// <summary>
+        /// Converts a replace pattern to .NET substitution syntax. .NET syntax (<c>$1</c>, <c>${name}</c>, <c>$0</c>,
+        /// <c>$$</c>) is kept as is, and the <c>\1</c> to <c>\9</c> group references used by other editors are converted.
+        /// <c>\n</c>, <c>\t</c> and <c>\\</c> insert a newline, a tab and a backslash.
+        /// </summary>
+        public static string ToRegexReplacement(string replacement)
+        {
+            if (string.IsNullOrEmpty(replacement) || replacement.IndexOf('\\') < 0)
+                return replacement ?? string.Empty;
+
+            var builder = new StringBuilder(replacement.Length);
+            for (var i = 0; i < replacement.Length; i++)
+            {
+                var c = replacement[i];
+                if (c != '\\' || i + 1 >= replacement.Length)
+                {
+                    builder.Append(c);
+                    continue;
+                }
+
+                var next = replacement[i + 1];
+                switch (next)
+                {
+                    case >= '0' and <= '9':
+                        builder.Append("${").Append(next).Append('}');
+                        break;
+                    case 'n':
+                        builder.Append('\n');
+                        break;
+                    case 't':
+                        builder.Append('\t');
+                        break;
+                    case '\\':
+                        builder.Append('\\');
+                        break;
+                    default:
+                        builder.Append(c);
+                        continue;
+                }
+
+                i++;
+            }
+
+            return builder.ToString();
         }
 
         private Panel _messageView;
