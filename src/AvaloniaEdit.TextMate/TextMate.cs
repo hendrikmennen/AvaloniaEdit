@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using TextMateSharp.Grammars;
@@ -11,6 +12,28 @@ namespace AvaloniaEdit.TextMate
 {
     public static class TextMate
     {
+        private static Action<Exception> s_exceptionHandler;
+
+        /// <summary>
+        /// Registers a fallback exception handler used by installations that don't pass their own handler.
+        /// </summary>
+        /// <remarks>Kept for binary compatibility with assemblies built against earlier OneWare.AvaloniaEdit.TextMate versions.
+        /// Prefer the <c>exceptionHandler</c> parameter of <see cref="InstallTextMate(TextEditor, IRegistryOptions, bool, Action{Exception})"/>.</remarks>
+        public static void RegisterExceptionHandler(Action<Exception> handler)
+        {
+            Volatile.Write(ref s_exceptionHandler, handler);
+        }
+
+        // Binary compatibility overload for assemblies built against earlier versions (no optional parameters to avoid ambiguity).
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static Installation InstallTextMate(
+            this TextEditor editor,
+            IRegistryOptions registryOptions,
+            bool initCurrentDocument)
+        {
+            return new Installation(editor, registryOptions, initCurrentDocument, null);
+        }
+
         /// <summary>
         /// Installs TextMate integration into the specified text editor, enabling advanced syntax highlighting and editing
         /// features.
@@ -57,6 +80,13 @@ namespace AvaloniaEdit.TextMate
 
             public event EventHandler<Installation> AppliedTheme;
 
+            // Binary compatibility overload for assemblies built against earlier versions (no optional parameters to avoid ambiguity).
+            [EditorBrowsable(EditorBrowsableState.Never)]
+            public Installation(TextEditor editor, IRegistryOptions registryOptions, bool initCurrentDocument)
+                : this(editor, registryOptions, initCurrentDocument, null)
+            {
+            }
+
             /// <summary>
             /// Initializes a new instance of the Installation class, configuring syntax highlighting for the specified
             /// text editor using the provided registry options.
@@ -81,7 +111,7 @@ namespace AvaloniaEdit.TextMate
             {
                 RegistryOptions = registryOptions ?? throw new ArgumentNullException(nameof(registryOptions));
                 _editor = editor ?? throw new ArgumentNullException(nameof(editor));
-                _exceptionHandler = exceptionHandler;
+                _exceptionHandler = exceptionHandler ?? Volatile.Read(ref s_exceptionHandler);
 
                 _textMateRegistry = new Registry(registryOptions);
                 _transformer = _editor.TextArea.TextView.LineTransformers.OfType<TextMateColoringTransformer>().FirstOrDefault();

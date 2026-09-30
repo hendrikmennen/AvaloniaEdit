@@ -45,6 +45,30 @@ namespace AvaloniaEdit.Tests.TextMate
         }
         #endregion Constructor tests
 
+        #region Binary compatibility tests
+        [Test]
+        public void LegacySignatures_ShouldExist_ForBinaryCompatibility()
+        {
+            var textMateType = typeof(AvaloniaEdit.TextMate.TextMate);
+            var legacyParameters = new[] { typeof(TextEditor), typeof(IRegistryOptions), typeof(bool) };
+
+            Assert.IsNotNull(textMateType.GetMethod(nameof(AvaloniaEdit.TextMate.TextMate.InstallTextMate), legacyParameters));
+            Assert.IsNotNull(typeof(AvaloniaEdit.TextMate.TextMate.Installation).GetConstructor(legacyParameters));
+            Assert.IsNotNull(textMateType.GetMethod(nameof(AvaloniaEdit.TextMate.TextMate.RegisterExceptionHandler), new[] { typeof(Action<Exception>) }));
+        }
+
+        [Test]
+        public void LegacyInstallTextMate_ShouldInstall()
+        {
+            TextEditor textEditor = new TextEditor();
+            RegistryOptions registryOptions = new RegistryOptions(MockThemeName);
+
+            using var installation = AvaloniaEdit.TextMate.TextMate.InstallTextMate(textEditor, registryOptions, true);
+
+            Assert.AreSame(registryOptions, installation.RegistryOptions);
+        }
+        #endregion Binary compatibility tests
+
         #region SetGrammar tests
         [Test]
         public void SetGrammar_ShouldThrow_When_Disposed()
