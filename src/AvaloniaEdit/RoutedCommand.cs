@@ -12,7 +12,16 @@ namespace AvaloniaEdit
         private static IInputElement _inputElement;
 
         public string Name { get; }
-        public KeyGesture Gesture { get; }
+
+        /// <summary>
+        /// Gets or sets the key gesture that invokes this command in a <see cref="Editing.TextArea"/>.
+        /// </summary>
+        /// <remarks>
+        /// Set to <see langword="null"/> to disable the built-in shortcut, e.g. when the host application
+        /// dispatches the command through its own (rebindable) key binding system.
+        /// This affects all text areas, because the commands are shared.
+        /// </remarks>
+        public KeyGesture Gesture { get; set; }
 
         public RoutedCommand(string name, KeyGesture keyGesture = null)
         {
