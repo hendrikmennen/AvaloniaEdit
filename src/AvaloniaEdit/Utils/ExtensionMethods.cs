@@ -15,11 +15,6 @@
 // FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Xml;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
@@ -27,6 +22,11 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Reactive;
 using Avalonia.VisualTree;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Xml;
 
 namespace AvaloniaEdit.Utils
 {
@@ -217,7 +217,8 @@ namespace AvaloniaEdit.Utils
         #region Snap to device pixels
         public static Point SnapToDevicePixels(this Point p, Visual targetVisual)
         {
-            var root = targetVisual.GetVisualRoot();
+
+            var root = TopLevel.GetTopLevel(targetVisual);
 
             // Get the root control and its scaling
             var scaling = new Vector(root.RenderScaling, root.RenderScaling);
@@ -303,7 +304,7 @@ namespace AvaloniaEdit.Utils
             return stack.IsEmpty ? default(T) : stack.Peek();
         }
 
-        public static IDisposable SubscribeOld<T>(this IObservable<T> observable, Action<T> action)
+        public static IDisposable Subscribe<T>(this IObservable<T> observable, Action<T> action)
         {
             return observable.Subscribe(new AnonymousObserver<T>(action));
         }

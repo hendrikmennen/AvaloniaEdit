@@ -1,29 +1,9 @@
 <Project>
+  <Import Project="$(MSBuildThisFileDirectory)/build-common/Common.props" />
+
   <PropertyGroup>
     <LangVersion>14</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <IncludeSymbols>true</IncludeSymbols>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-
-    <Version>11.3.20</Version>
-    <Authors>Avalonia Team</Authors>
-    <Copyright>Copyright 2017-$([System.DateTime]::Now.ToString(`yyyy`)) &#169; The AvaloniaUI Project</Copyright>
-    <RepositoryUrl>https://github.com/HendrikMennen/AvaloniaEdit/</RepositoryUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageIcon>Icon.png</PackageIcon>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Version>12.1.0</Version>
   </PropertyGroup>
-
-  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
-    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-  </PropertyGroup>
-
-  <ItemGroup Label="PackageIcon">
-    <None Include="$(MSBuildThisFileDirectory)/Icon.png" Pack="true" Visible="false" PackagePath=""/>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All"/>
-  </ItemGroup>
 </Project>

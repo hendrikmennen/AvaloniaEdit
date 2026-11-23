@@ -174,10 +174,10 @@ namespace AvaloniaEdit.Search
 
         static SearchPanel()
         {
-            UseRegexProperty.Changed.SubscribeOld(SearchPatternChangedCallback);
-            MatchCaseProperty.Changed.SubscribeOld(SearchPatternChangedCallback);
-            WholeWordsProperty.Changed.SubscribeOld(SearchPatternChangedCallback);
-            SearchPatternProperty.Changed.SubscribeOld(SearchPatternChangedCallback);
+            UseRegexProperty.Changed.Subscribe(SearchPatternChangedCallback);
+            MatchCaseProperty.Changed.Subscribe(SearchPatternChangedCallback);
+            WholeWordsProperty.Changed.Subscribe(SearchPatternChangedCallback);
+            SearchPatternProperty.Changed.Subscribe(SearchPatternChangedCallback);
         }
 
         /// <summary>
@@ -682,7 +682,7 @@ namespace AvaloniaEdit.Search
             base.OnPointerMoved(e);
         }
 
-        protected override void OnGotFocus(GotFocusEventArgs e)
+        protected override void OnGotFocus(FocusChangedEventArgs e)
         {
             e.Handled = true;
 

@@ -21,6 +21,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0 # Get all history to allow automatic versioning using MinVer
+        submodules: recursive # build-common provides the shared props/targets
 
     # Install the .NET SDK
     - name: Setup .NET
@@ -32,9 +33,9 @@ jobs:
     - run: dotnet pack ./src/AvaloniaEdit/AvaloniaEdit.csproj --configuration Release --output ${{ env.NuGetDirectory }}
     - run: dotnet pack ./src/AvaloniaEdit.TextMate/AvaloniaEdit.TextMate.csproj --configuration Release --output ${{ env.NuGetDirectory }}
 
-    # Tests need a strong-named build (InternalsVisibleTo), so run them after packing the unsigned assemblies
+    # Packed assemblies are unsigned; the test project is signed automatically (see Directory.Build.targets)
     - name: Test
-      run: dotnet test ./test/AvaloniaEdit.Tests/AvaloniaEdit.Tests.csproj --configuration Release -p:SignAssembly=true -p:AssemblyOriginatorKeyFile=${{ github.workspace }}/avalonia.snk
+      run: dotnet test --project ./test/AvaloniaEdit.Tests/AvaloniaEdit.Tests.csproj --configuration Release
 
     # Publish the NuGet package as an artifact, so they can be used in the following jobs
     - uses: actions/upload-artifact@v4

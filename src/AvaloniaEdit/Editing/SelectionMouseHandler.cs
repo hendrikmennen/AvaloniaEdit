@@ -71,7 +71,7 @@ namespace AvaloniaEdit.Editing
 
         private SelectionMode _mode;
         private AnchorSegment _startWord;
-        private Point _possibleDragStartMousePos;
+        private (Point position, PointerPressedEventArgs args)? _possibleDragStartMouseState;
         private Point _lastMousePosition;
 
         #region Constructor + Attach + Detach
@@ -101,6 +101,7 @@ namespace AvaloniaEdit.Editing
         public void Detach()
         {
             _mode = SelectionMode.None;
+            _possibleDragStartMouseState = default;
             TextArea.PointerPressed -= TextArea_MouseLeftButtonDown;
             TextArea.PointerMoved -= TextArea_MouseMove;
             TextArea.TextView.ScrollOffsetChanged -= TextView_ScrollOffsetChanged;
@@ -177,7 +178,7 @@ namespace AvaloniaEdit.Editing
 
         DragDropEffects GetEffect(DragEventArgs e)
         {
-            if (e.Data.Contains(DataFormats.Text))
+            if (e.DataTransfer.Contains(DataFormat.Text))
             {
                 e.Handled = true;
                 int visualColumn;
@@ -187,7 +188,7 @@ namespace AvaloniaEdit.Editing
                 {
                     TextArea.Caret.Position = new TextViewPosition(TextArea.Document.GetLocation(offset), visualColumn) { IsAtEndOfLine = isAtEndOfLine };
                     TextArea.Caret.DesiredXPos = double.NaN;
-                    if (TextArea.ReadOnlySectionProvider.CanInsert(offset))
+                    if (TextArea.CanInsert(offset))
                     {
                         if ((e.DragEffects & DragDropEffects.Move) == DragDropEffects.Move
                             && (e.KeyModifiers & KeyModifiers.Control) != KeyModifiers.Control)
@@ -243,10 +244,10 @@ namespace AvaloniaEdit.Editing
                         ////if (pastingEventArgs.CommandCancelled)
                         ////    return;
 
-                        string text = EditingCommandHandler.GetTextToPaste(e.Data, TextArea);
+                        string text = EditingCommandHandler.GetTextToPaste(e.DataTransfer, TextArea);
                         if (text == null)
                             return;
-                        bool rectangular = e.Data.Contains(RectangleSelection.RectangularSelectionDataType);
+                        bool rectangular = e.DataTransfer.Contains(DataFormat.CreateStringApplicationFormat(RectangleSelection.RectangularSelectionDataType));
 
                         // Mark the undo group with the currentDragDescriptor, if the drag
                         // is originating from the same control. This allows combining
@@ -323,7 +324,7 @@ namespace AvaloniaEdit.Editing
         #region Start Drag
         object currentDragDescriptor;
 
-        async void StartDrag(PointerEventArgs e)
+        async void StartDrag(PointerPressedEventArgs e)
         {
             // prevent nested StartDrag calls
             _mode = SelectionMode.Drag;
@@ -331,7 +332,7 @@ namespace AvaloniaEdit.Editing
             // mouse capture and Drag'n'Drop doesn't mix
             e.Pointer.Capture(null);
 
-            DataObject dataObject = TextArea.Selection.CreateDataObject(TextArea);
+            DataTransfer dataObject = TextArea.Selection.CreateDataObject(TextArea);
 
             DragDropEffects allowedEffects = DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link;
             var deleteOnMove = TextArea.Selection.Segments.Select(s => new AnchorSegment(TextArea.Document, s)).ToList();
@@ -359,7 +360,7 @@ namespace AvaloniaEdit.Editing
                 try
                 {
                     Debug.WriteLine("DoDragDrop with allowedEffects=" + allowedEffects);
-                    resultEffect = await DragDrop.DoDragDrop(e, dataObject, allowedEffects);
+                    resultEffect = await DragDrop.DoDragDropAsync(e, dataObject, allowedEffects);
                     Debug.WriteLine("DoDragDrop done, resultEffect=" + resultEffect);
                 }
                 catch (Exception ex)
@@ -435,6 +436,7 @@ namespace AvaloniaEdit.Editing
         {
             var mousePosition = e.GetPosition(TextArea.TextView);
             _lastMousePosition = mousePosition;
+            _possibleDragStartMouseState = default;
 
             var pointer = e.GetCurrentPoint(TextArea);
             if (pointer.Properties.IsLeftButtonPressed == false)
@@ -461,7 +463,8 @@ namespace AvaloniaEdit.Editing
                             if (TextArea.CapturePointer(e.Pointer))
                             {
                                 _mode = SelectionMode.PossibleDragStart;
-                                _possibleDragStartMousePos = e.GetPosition(TextArea);
+                                var position = e.GetPosition(TextArea);
+                                _possibleDragStartMouseState = (position, e);
                             }
                             e.Handled = true;
                             return;
@@ -676,14 +679,15 @@ namespace AvaloniaEdit.Editing
                     ExtendSelectionToMouse(mousePosition);
                 }
             }
-            else if (_mode == SelectionMode.PossibleDragStart)
+            else if (_mode == SelectionMode.PossibleDragStart
+                     && _possibleDragStartMouseState is { } dragStartState && dragStartState.args.Pointer.Id == e.Pointer.Id)
             {
                 e.Handled = true;
-                Vector mouseMovement = e.GetPosition(TextArea) - _possibleDragStartMousePos;
+                Vector mouseMovement = e.GetPosition(TextArea) - dragStartState.position;
                 if (Math.Abs(mouseMovement.X) > MinimumHorizontalDragDistance
                     || Math.Abs(mouseMovement.Y) > MinimumVerticalDragDistance)
                 {
-                    StartDrag(e);
+                    StartDrag(dragStartState.args);
                 }
             }
         }
@@ -790,6 +794,7 @@ namespace AvaloniaEdit.Editing
                     break;
             }
             _mode = SelectionMode.None;
+            _possibleDragStartMouseState = default;
             TextArea.ReleasePointerCapture(e.Pointer);
         }
         #endregion

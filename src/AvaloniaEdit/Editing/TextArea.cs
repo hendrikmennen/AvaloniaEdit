@@ -60,8 +60,8 @@ namespace AvaloniaEdit.Editing
             KeyboardNavigation.TabNavigationProperty.OverrideDefaultValue<TextArea>(KeyboardNavigationMode.None);
             FocusableProperty.OverrideDefaultValue<TextArea>(true);
 
-            DocumentProperty.Changed.SubscribeOld(OnDocumentChanged);
-            OptionsProperty.Changed.SubscribeOld(OnOptionsChanged);
+            DocumentProperty.Changed.Subscribe(OnDocumentChanged);
+            OptionsProperty.Changed.Subscribe(OnOptionsChanged);
 
             AffectsArrange<TextArea>(OffsetProperty);
             AffectsRender<TextArea>(OffsetProperty);
@@ -781,7 +781,7 @@ namespace AvaloniaEdit.Editing
             Focus();
         }
 
-        protected override void OnGotFocus(GotFocusEventArgs e)
+        protected override void OnGotFocus(FocusChangedEventArgs e)
         {
             base.OnGotFocus(e);
 
@@ -790,7 +790,7 @@ namespace AvaloniaEdit.Editing
             _imClient.SetTextArea(this);
         }
 
-        protected override void OnLostFocus(RoutedEventArgs e)
+        protected override void OnLostFocus(FocusChangedEventArgs e)
         {
             base.OnLostFocus(e);
 
@@ -925,7 +925,7 @@ namespace AvaloniaEdit.Editing
             {
                 foreach (var s in _selection.Segments)
                 {
-                    Debug.Assert(!ReadOnlySectionProvider.GetDeletableSegments(s).Any());
+                    Debug.Assert(GetDeletableSegments(s).Length == 0);
                 }
             }
 #endif
@@ -940,12 +940,20 @@ namespace AvaloniaEdit.Editing
             _selection.ReplaceSelectionWithText(newText);
         }
 
+        internal bool CanInsert(int offset)
+        {
+            return ReadOnlySectionProvider.CanInsert(offset) &&
+                   LongLineEditProtection.CanInsert(Document, offset);
+        }
+
         internal ISegment[] GetDeletableSegments(ISegment segment)
         {
             var deletableSegments = ReadOnlySectionProvider.GetDeletableSegments(segment);
             if (deletableSegments == null)
                 throw new InvalidOperationException("ReadOnlySectionProvider.GetDeletableSegments returned null");
-            var array = deletableSegments.ToArray();
+            var array = deletableSegments
+                .SelectMany(s => LongLineEditProtection.GetDeletableSegments(Document, s))
+                .ToArray();
             var lastIndex = segment.Offset;
             foreach (var t in array)
             {
@@ -1157,6 +1165,15 @@ namespace AvaloniaEdit.Editing
 
         Size IScrollable.Viewport => _logicalScrollable?.Viewport ?? default(Size);
 
+        bool IScrollable.CanHorizontallyScroll
+        {
+            get => _logicalScrollable?.CanHorizontallyScroll ?? default(bool);
+        }
+
+        bool IScrollable.CanVerticallyScroll
+        {
+            get => _logicalScrollable?.CanVerticallyScroll ?? default(bool);
+        }
         bool ILogicalScrollable.CanHorizontallyScroll
         {
             get => _logicalScrollable?.CanHorizontallyScroll ?? default(bool);

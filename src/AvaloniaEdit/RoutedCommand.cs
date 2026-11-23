@@ -57,7 +57,7 @@ namespace AvaloniaEdit
             }
         }
 
-        private static void GotFocusEventHandler(Interactive control, GotFocusEventArgs args)
+        private static void GotFocusEventHandler(Interactive control, FocusChangedEventArgs args)
         {
             _inputElement = args.Source as IInputElement;
         }

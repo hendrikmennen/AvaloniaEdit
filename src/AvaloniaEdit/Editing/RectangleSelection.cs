@@ -19,10 +19,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Text;
 using Avalonia;
+using Avalonia.Input;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Utils;
 
@@ -328,7 +328,7 @@ namespace AvaloniaEdit.Editing
         {
             if (lineSegment.Length == 0)
             {
-                if (newText.Length > 0 && textArea.ReadOnlySectionProvider.CanInsert(lineSegment.StartOffset))
+                if (newText.Length > 0 && textArea.CanInsert(lineSegment.StartOffset))
                 {
                     newText = AddSpacesIfRequired(newText, new TextViewPosition(_document.GetLocation(lineSegment.StartOffset), lineSegment.StartVisualColumn), new TextViewPosition(_document.GetLocation(lineSegment.EndOffset), lineSegment.EndVisualColumn));
                     textArea.Document.Insert(lineSegment.StartOffset, newText);
@@ -390,15 +390,16 @@ namespace AvaloniaEdit.Editing
         /// </summary>
         public const string RectangularSelectionDataType = "AvalonEditRectangularSelection";
 
-        public override Avalonia.Input.DataObject CreateDataObject(TextArea textArea)
+        public override Avalonia.Input.DataTransfer CreateDataObject(TextArea textArea)
         {
             var data = base.CreateDataObject(textArea);
 
-            if (EditingCommandHandler.ConfirmDataFormat(textArea, data, RectangularSelectionDataType))
+            var format = DataFormat.CreateBytesApplicationFormat(RectangularSelectionDataType);
+            if (EditingCommandHandler.ConfirmDataFormat(textArea, data, format))
             {
-                MemoryStream isRectangle = new MemoryStream(1);
-                isRectangle.WriteByte(1);
-                data.Set(RectangularSelectionDataType, isRectangle);
+                var item = new DataTransferItem();
+                item.Set(format, [(byte)1]);
+                data.Add(item);
             }
             return data;
         }
