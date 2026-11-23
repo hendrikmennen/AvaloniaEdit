@@ -33,7 +33,6 @@ jobs:
     - run: dotnet pack ./src/AvaloniaEdit/AvaloniaEdit.csproj --configuration Release --output ${{ env.NuGetDirectory }}
     - run: dotnet pack ./src/AvaloniaEdit.TextMate/AvaloniaEdit.TextMate.csproj --configuration Release --output ${{ env.NuGetDirectory }}
 
-    # Packed assemblies are unsigned; the test project is signed automatically (see Directory.Build.targets)
     - name: Test
       run: dotnet test --project ./test/AvaloniaEdit.Tests/AvaloniaEdit.Tests.csproj --configuration Release
 

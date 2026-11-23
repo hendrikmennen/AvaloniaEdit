@@ -1,6 +1,3 @@
 <Project>
-  <!-- OneWare fork: packed assemblies stay unsigned (PublicKeyToken=null) so they remain binary compatible with
-       consumers built against earlier OneWare.AvaloniaEdit packages. Tests and the demo are still signed because
-       of the InternalsVisibleTo declarations that reference the Avalonia public key. -->
-  <Import Project="$(RepositoryTargetsRoot)/SignEnable.targets" Condition="'$(IsPackable)' != 'true'" />
+  <Import Project="$(RepositoryTargetsRoot)/SignEnable.targets" />
 </Project>
